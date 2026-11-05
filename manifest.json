@@ -2,10 +2,10 @@
   "schemaVersion": 1,
   "id": "pdurlej.ambient-keyboard",
   "name": "Ambient Keyboard",
-  "version": "0.9.0-beta.1",
+  "version": "0.10.0-beta.1",
   "author": "Piotr Durlej (@pdurlej)",
   "license": "MIT",
-  "description": "Keyboard backlight that follows the ambient light sensor, like on a Mac: brighter in the dark, off in daylight. Manual changes pause it for two minutes.",
+  "description": "Mac-style keyboard backlight for Intel MacBooks and other laptops: follows the light sensor, learns from the brightness keys, and fades out while you are not typing.",
   "preview": "preview.png",
   "kinds": [
     "service",
@@ -18,7 +18,7 @@
   },
   "barWidget": {
     "displayName": "Ambient Keyboard",
-    "description": "Keyboard backlight that follows the ambient light",
+    "description": "Mac-style keyboard backlight for Intel MacBooks and other laptops: follows the light sensor, learns from the brightness keys, and fades out while you are not typing.",
     "category": "System",
     "allowMultiple": false,
     "defaultSection": "right"
