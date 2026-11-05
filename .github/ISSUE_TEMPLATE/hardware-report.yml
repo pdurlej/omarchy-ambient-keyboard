@@ -1,0 +1,46 @@
+name: Hardware report
+description: Tell us how Ambient Keyboard runs on your laptop, whether it works or not.
+title: "[Hardware]: "
+labels: ["hardware-report"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for testing the beta! Reports of machines where it **just works** are as useful as problem reports.
+  - type: input
+    id: model
+    attributes:
+      label: Laptop model
+      description: "For example: MacBook Pro 13\" 2015. The exact ID helps too: `cat /sys/class/dmi/id/product_name`"
+      placeholder: MacBookPro12,1
+    validations:
+      required: true
+  - type: dropdown
+    id: result
+    attributes:
+      label: Does it work?
+      options:
+        - "Yes, it works"
+        - "Partly (see notes)"
+        - "No"
+    validations:
+      required: true
+  - type: textarea
+    id: probe
+    attributes:
+      label: Probe output
+      description: "Run `~/.config/omarchy/plugins/pdurlej.ambient-keyboard/probe` and paste the line it prints."
+      render: json
+    validations:
+      required: true
+  - type: input
+    id: omarchy
+    attributes:
+      label: Omarchy version
+      description: "`omarchy version`"
+      placeholder: 4.5.0-3
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Anything else, such as whether the default levels feel right in your room.

@@ -1,0 +1,44 @@
+name: Bug report
+description: Something misbehaves, such as flickering, ignoring your changes, or not turning off.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you expected, and what the backlight did instead.
+    validations:
+      required: true
+  - type: input
+    id: model
+    attributes:
+      label: Laptop model
+      description: "`cat /sys/class/dmi/id/product_name`"
+    validations:
+      required: true
+  - type: textarea
+    id: status
+    attributes:
+      label: Plugin status
+      description: "Run `omarchy-shell pdurlej.ambient-keyboard status` and paste the output."
+      render: json
+    validations:
+      required: true
+  - type: textarea
+    id: probe
+    attributes:
+      label: Probe output
+      description: "`~/.config/omarchy/plugins/pdurlej.ambient-keyboard/probe`"
+      render: json
+  - type: textarea
+    id: logs
+    attributes:
+      label: Shell log lines
+      description: "`quickshell log -p /usr/share/omarchy/shell | grep ambient-keyboard | tail -20`"
+      render: text
+  - type: input
+    id: omarchy
+    attributes:
+      label: Omarchy version
+      description: "`omarchy version`"

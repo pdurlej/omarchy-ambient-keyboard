@@ -1,5 +1,7 @@
 # Ambient Keyboard for Omarchy
 
+> **Beta.** Tested on one machine so far: a 2015 MacBook Pro (MacBookPro11,5) on Omarchy 4.5. It should work on other laptops with an ambient light sensor and a backlit keyboard, but that is not verified yet. **[Tell me how it runs on yours](https://github.com/pdurlej/omarchy-ambient-keyboard/issues/new/choose)**, whether it works or not.
+
 Keyboard backlight that follows the room's light, the way a Mac does it: the keys glow softly in the dark, dim as the room gets brighter, and switch off in daylight. Change the brightness yourself and the automation steps aside for two minutes.
 
 ![Ambient Keyboard panel](preview.png)
@@ -19,7 +21,28 @@ Keyboard backlight that follows the room's light, the way a Mac does it: the key
 - An ambient light sensor exposed through IIO (`in_illuminance_input`, or `in_illuminance_raw` with a scale)
 - `brightnessctl` and `jq`, both shipped with Omarchy
 
-Tested on a 2015 MacBook Pro (MacBookPro11,5) with the `acpi-als` sensor and `smc::kbd_backlight`. Other Intel MacBooks, and laptops with an IIO light sensor and a backlit keyboard, should work too. If your machine works, or does not, an issue with its model is very welcome.
+Tested on a 2015 MacBook Pro (MacBookPro11,5) with the `acpi-als` sensor and `smc::kbd_backlight`. Other Intel MacBooks, and laptops with an IIO light sensor and a backlit keyboard, should work too.
+
+To check what your machine exposes, run the plugin's read-only probe:
+
+```sh
+~/.config/omarchy/plugins/pdurlej.ambient-keyboard/probe
+```
+
+A line with a non-empty `led` and a number in `lux` means the plugin can drive your keyboard.
+
+## Help test the beta
+
+Every report helps, including "it just works":
+
+- **[Hardware report](https://github.com/pdurlej/omarchy-ambient-keyboard/issues/new?template=hardware-report.yml)**: your laptop model, the probe output, and whether it worked.
+- **[Bug report](https://github.com/pdurlej/omarchy-ambient-keyboard/issues/new?template=bug-report.yml)**: something misbehaves, such as the keys flickering, ignoring your changes, or not turning off.
+
+Machines confirmed so far:
+
+| Machine | Sensor | Backlight | Status |
+| --- | --- | --- | --- |
+| MacBook Pro 15" 2015 (MacBookPro11,5) | `acpi-als` | `smc::kbd_backlight` | ✅ works |
 
 ## Install
 

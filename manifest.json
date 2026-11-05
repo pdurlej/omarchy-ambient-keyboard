@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "pdurlej.ambient-keyboard",
   "name": "Ambient Keyboard",
-  "version": "1.0.0",
+  "version": "0.9.0-beta.1",
   "author": "Piotr Durlej (@pdurlej)",
   "license": "MIT",
   "description": "Keyboard backlight that follows the ambient light sensor, like on a Mac: brighter in the dark, off in daylight. Manual changes pause it for two minutes.",
