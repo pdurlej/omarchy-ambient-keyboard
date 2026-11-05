@@ -1,0 +1,18 @@
+{
+  "title": "Podświetlenie klawiatury",
+  "status.starting": "Uruchamianie",
+  "status.auto": "Według oświetlenia",
+  "status.paused": "Ręcznie, wznowienie za %1 s",
+  "status.off": "Automat wyłączony",
+  "status.asleep": "Czeka na ekran",
+  "status.noSensor": "Brak czujnika światła",
+  "status.noBacklight": "Brak podświetlenia klawiatury",
+  "ambientLight": "Oświetlenie",
+  "target": "Cel",
+  "lux": "%1 lx",
+  "automatic": "Automatycznie",
+  "automaticDescription": "Jaśniej w ciemności, wyłączone w dzień",
+  "darkLevel": "Poziom w ciemności",
+  "offAbove": "Wyłącz powyżej",
+  "resume": "Wznów automat"
+}

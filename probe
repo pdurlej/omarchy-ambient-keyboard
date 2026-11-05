@@ -1,0 +1,69 @@
+#!/bin/bash
+# Prints one JSON line: keyboard backlight level, ambient light, and whether
+# the desktop is in use (lid open, session unlocked, a display powered on).
+# Read-only; Ambient Keyboard changes the backlight through brightnessctl.
+
+led=""
+for candidate in /sys/class/leds/*kbd_backlight*; do
+  if [[ -r $candidate/brightness && -r $candidate/max_brightness ]]; then
+    led=$candidate
+    break
+  fi
+done
+
+brightness=-1
+maximum=0
+if [[ -n $led ]]; then
+  brightness=$(<"$led/brightness")
+  maximum=$(<"$led/max_brightness")
+fi
+
+# Prefer a processed lux value; fall back to raw * scale.
+sensor=""
+lux=null
+for device in /sys/bus/iio/devices/iio:device*; do
+  [[ -d $device ]] || continue
+  if [[ -r $device/in_illuminance_input ]]; then
+    value=$(<"$device/in_illuminance_input") || continue
+  elif [[ -r $device/in_illuminance_raw ]]; then
+    raw=$(<"$device/in_illuminance_raw") || continue
+    scale=1
+    [[ -r $device/in_illuminance_scale ]] && scale=$(<"$device/in_illuminance_scale")
+    value=$(awk -v r="$raw" -v s="$scale" 'BEGIN { printf "%.3f", r * s }')
+  else
+    continue
+  fi
+  if [[ $value =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+    lux=$value
+    sensor=$(<"$device/name")
+    break
+  fi
+done
+
+lid_closed=false
+for state in /proc/acpi/button/lid/*/state; do
+  [[ -r $state ]] && grep -q closed "$state" && lid_closed=true
+done
+
+monitors=$(timeout 3 hyprctl -j monitors 2>/dev/null) || monitors="[]"
+
+jq -cn \
+  --arg led "$(basename "${led:-}")" \
+  --argjson brightness "${brightness:--1}" \
+  --argjson max "${maximum:-0}" \
+  --argjson lux "$lux" \
+  --arg sensor "$sensor" \
+  --argjson lidClosed "$lid_closed" \
+  --argjson monitors "${monitors:-[]}" '
+  {
+    led: $led,
+    brightness: $brightness,
+    max: $max,
+    lux: $lux,
+    sensor: $sensor,
+    awake: (
+      ($lidClosed | not)
+      and ([$monitors[] | (.solitaryBlockedBy // []) | index("LOCK")] | all(. == null))
+      and ([$monitors[] | select((.dpmsStatus // false) and ((.disabled // false) | not))] | length > 0)
+    )
+  }'

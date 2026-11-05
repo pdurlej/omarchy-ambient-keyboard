@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "pdurlej.ambient-keyboard",
+  "name": "Ambient Keyboard",
+  "version": "1.0.0",
+  "author": "Piotr Durlej (@pdurlej)",
+  "license": "MIT",
+  "description": "Keyboard backlight that follows the ambient light sensor, like on a Mac: brighter in the dark, off in daylight. Manual changes pause it for two minutes.",
+  "preview": "preview.png",
+  "kinds": [
+    "service",
+    "bar-widget"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "service": "Service.qml",
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "Ambient Keyboard",
+    "description": "Keyboard backlight that follows the ambient light",
+    "category": "System",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}

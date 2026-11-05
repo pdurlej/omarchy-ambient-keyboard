@@ -1,0 +1,18 @@
+{
+  "title": "Keyboard backlight",
+  "status.starting": "Starting",
+  "status.auto": "Following ambient light",
+  "status.paused": "Manual, resumes in %1 s",
+  "status.off": "Automatic off",
+  "status.asleep": "Waiting for the screen",
+  "status.noSensor": "No light sensor found",
+  "status.noBacklight": "No keyboard backlight found",
+  "ambientLight": "Ambient light",
+  "target": "Target",
+  "lux": "%1 lx",
+  "automatic": "Automatic",
+  "automaticDescription": "Brighter keys in the dark, off in daylight",
+  "darkLevel": "Level in the dark",
+  "offAbove": "Off above",
+  "resume": "Resume automatic"
+}
