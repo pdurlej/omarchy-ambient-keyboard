@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "pdurlej.ambient-keyboard",
   "name": "Ambient Keyboard",
-  "version": "0.10.1-beta.1",
+  "version": "0.10.2-beta.1",
   "author": "Piotr Durlej (@pdurlej)",
   "license": "MIT",
   "description": "Mac-style keyboard backlight for Intel MacBooks and other laptops: follows the light sensor, learns from the brightness keys, and fades out while you are not typing.",

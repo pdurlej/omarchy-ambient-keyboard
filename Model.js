@@ -178,6 +178,7 @@ function initialState() {
 //   fade     true when the change should fade rather than step
 //   learn    { darkPercent } to save as the new preference, or null
 //   status   auto | hold | manual | idle | off | asleep | no-backlight
+//            (the service may report error-read or error-write instead)
 function tick(state, probe, settings, idle) {
   var s = state || initialState()
   var next = {
@@ -324,4 +325,32 @@ function tick(state, probe, settings, idle) {
   }
   next.status = "auto"
   return next
+}
+
+// After a write fails: forget the level we asked for, so the failed write is
+// not mistaken for a manual change, and forget that the keys were dimmed, so
+// an idle fade that did not happen is tried again on the next tick.
+function afterWriteFailed(state) {
+  var next = {}
+  for (var key in state) next[key] = state[key]
+  next.last = null
+  next.dimmed = false
+  return next
+}
+
+// Consecutive failures after which the panel shows a problem instead of a
+// normal status; one-off hiccups stay invisible.
+var failuresBeforeError = 3
+
+function errorStatus(readFailures, writeFailures) {
+  if (readFailures >= failuresBeforeError) return "error-read"
+  if (writeFailures >= failuresBeforeError) return "error-write"
+  return null
+}
+
+// At most one warning per kind per minute in the shell log.
+var warnIntervalMs = 60000
+
+function shouldWarn(lastWarnAt, now) {
+  return lastWarnAt === undefined || lastWarnAt === null || now - lastWarnAt >= warnIntervalMs
 }

@@ -39,6 +39,8 @@ Panel {
     case "off": return strings.t("status.off")
     case "asleep": return strings.t("status.asleep")
     case "no-backlight": return strings.t("status.noBacklight")
+    case "error-read": return strings.t("status.errorRead")
+    case "error-write": return strings.t("status.errorWrite")
     default: return strings.t("status.starting")
     }
   }

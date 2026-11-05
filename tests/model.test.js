@@ -4,7 +4,7 @@ const path = require("path")
 const assert = require("assert")
 
 const source = fs.readFileSync(path.join(__dirname, "..", "Model.js"), "utf8").replace(/^\.pragma library\s*/, "")
-const Model = new Function(source + "\nreturn { defaults, idleStops, normalizeSettings, entryFromShellConfig, targetFraction, smooth, nextLevel, lightChanged, learnFromManual, parseProbe, initialState, tick }")()
+const Model = new Function(source + "\nreturn { afterWriteFailed, errorStatus, shouldWarn, defaults, idleStops, normalizeSettings, entryFromShellConfig, targetFraction, smooth, nextLevel, lightChanged, learnFromManual, parseProbe, initialState, tick }")()
 
 let passed = 0
 function test(name, fn) {
@@ -258,6 +258,41 @@ test("implausible sensor readings are ignored", () => {
   // A glitch does not disturb the smoothed reading.
   const s = Model.tick(settled(89, 0), Model.parseProbe('{"led":"k","brightness":89,"max":255,"lux":1e12,"awake":true}'), settings, false)
   assert.strictEqual(s.filtered, 0)
+})
+
+test("a failed idle fade is retried on the next tick", () => {
+  const idle = Model.tick(settled(89, 0), probe(89, 0), settings, true)
+  assert.strictEqual(idle.set, 0)
+  // brightnessctl failed: the keys are still at 89.
+  const failed = Model.afterWriteFailed(idle)
+  const retry = Model.tick(failed, probe(89, 0), settings, true)
+  assert.strictEqual(retry.set, 0)
+  assert.strictEqual(retry.restoreLevel, 89)
+  // And coming back still restores the right level.
+  const back = Model.tick(retry, probe(0, 0), settings, false)
+  assert.strictEqual(back.set, 89)
+})
+
+test("a failed write is not mistaken for a manual change", () => {
+  const step = Model.tick(settled(89, 0), probe(89, 150), settings, false)
+  assert.strictEqual(step.set, 76)
+  const failed = Model.afterWriteFailed(step)
+  const next = Model.tick(failed, probe(89, 150), settings, false)
+  assert.strictEqual(next.learn, null)
+  assert.strictEqual(next.status, "auto")
+  assert.strictEqual(next.set, 76)
+})
+
+test("problems show only after three failures in a row", () => {
+  assert.strictEqual(Model.errorStatus(2, 2), null)
+  assert.strictEqual(Model.errorStatus(3, 0), "error-read")
+  assert.strictEqual(Model.errorStatus(0, 3), "error-write")
+})
+
+test("warnings are limited to one a minute", () => {
+  assert.strictEqual(Model.shouldWarn(undefined, 1000), true)
+  assert.strictEqual(Model.shouldWarn(1000, 30000), false)
+  assert.strictEqual(Model.shouldWarn(1000, 61000), true)
 })
 
 console.log(passed + " tests passed")

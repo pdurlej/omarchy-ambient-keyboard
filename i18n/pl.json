@@ -21,5 +21,7 @@
   "idle.never": "Nigdy",
   "idle.seconds": "%1 s",
   "idle.minutes": "%1 min",
-  "keysHint": "Zmieniaj klawiszami jasności (F5/F6 na MacBooku); krzywa to zapamięta."
+  "keysHint": "Zmieniaj klawiszami jasności (F5/F6 na MacBooku); krzywa to zapamięta.",
+  "status.errorRead": "Nie mogę odczytać czujnika",
+  "status.errorWrite": "Nie mogę zmienić podświetlenia"
 }

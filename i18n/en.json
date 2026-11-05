@@ -21,5 +21,7 @@
   "idle.never": "Never",
   "idle.seconds": "%1 s",
   "idle.minutes": "%1 min",
-  "keysHint": "Adjust with the brightness keys (F5/F6 on a MacBook); the curve remembers it."
+  "keysHint": "Adjust with the brightness keys (F5/F6 on a MacBook); the curve remembers it.",
+  "status.errorRead": "Cannot read the sensor",
+  "status.errorWrite": "Cannot change the backlight"
 }

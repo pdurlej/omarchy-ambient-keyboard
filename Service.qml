@@ -24,8 +24,12 @@ Item {
   property var settings: Model.normalizeSettings(null)
   property var automation: Model.initialState()
   property var reading: null
-  property string status: "starting"
-  property int failures: 0
+  property string tickStatus: "starting"
+  property int readFailures: 0
+  property int writeFailures: 0
+  property var lastWarnAt: ({})
+  property bool watchdogFired: false
+  readonly property string status: Model.errorStatus(readFailures, writeFailures) || tickStatus
   property bool pendingPoll: false
   property bool idleRearming: false
 
@@ -81,7 +85,25 @@ Item {
       return
     }
     pendingPoll = false
+    watchdogFired = false
     probeProcess.running = true
+    watchdog.restart()
+  }
+
+  // One line per kind of problem per minute, so a broken sensor or a missing
+  // tool does not flood the shell log every two seconds.
+  function warn(kind, message) {
+    var now = Date.now()
+    if (!Model.shouldWarn(lastWarnAt[kind], now)) return
+    var next = Object.assign({}, lastWarnAt)
+    next[kind] = now
+    lastWarnAt = next
+    console.warn(root.pluginId + ": " + message)
+  }
+
+  function readFailed(reason) {
+    readFailures += 1
+    warn("read", reason)
   }
 
   function afterWrite() {
@@ -91,7 +113,7 @@ Item {
   function apply(probe) {
     var result = Model.tick(automation, probe, settings, root.userIdle && settings.idleOffSeconds > 0)
     reading = probe
-    status = result.status
+    tickStatus = result.status
     automation = {
       last: result.last, filtered: result.filtered, awakeBefore: result.awakeBefore,
       target: result.target, holdLux: result.holdLux, dimmed: result.dimmed,
@@ -107,13 +129,35 @@ Item {
       setProcess.command = ["brightnessctl", "-q", "-d", probe.led, "set", String(result.set)]
       setProcess.running = true
     }
+    watchdog.restart()
   }
 
-  function writeFailed() {
-    // Forget the level we asked for, so the failed write is not mistaken for
-    // a manual change on the next tick.
-    automation = Object.assign({}, automation, { last: null })
-    console.warn(root.pluginId + ": brightnessctl could not set the keyboard backlight")
+  function writeFinished(exitCode) {
+    if (exitCode === 0) {
+      writeFailures = 0
+    } else {
+      // Try again on the next tick, including an idle fade that did not happen.
+      automation = Model.afterWriteFailed(automation)
+      writeFailures += 1
+      warn("write", "brightnessctl could not set the keyboard backlight")
+    }
+    afterWrite()
+  }
+
+  // A probe or write that hangs (a stuck driver, a missing tool waiting on
+  // input) would stop the automation for good; give up on it after a while.
+  Timer {
+    id: watchdog
+    interval: 5000
+    onTriggered: {
+      if (probeProcess.running) {
+        root.watchdogFired = true
+        root.readFailed("the probe did not finish in 5 s and was stopped")
+        probeProcess.running = false
+      }
+      if (setProcess.running) setProcess.running = false
+      if (fadeProcess.running) fadeProcess.running = false
+    }
   }
 
   // Eight short steps, about a quarter of a second in total.
@@ -159,12 +203,10 @@ Item {
       onStreamFinished: {
         var probe = Model.parseProbe(text)
         if (probe) {
-          root.failures = 0
+          root.readFailures = 0
           root.apply(probe)
-        } else {
-          root.failures += 1
-          if (root.failures === 1 || root.failures % 30 === 0)
-            console.warn(root.pluginId + ": could not read the backlight or light sensor")
+        } else if (!root.watchdogFired) {
+          root.readFailed("could not read the backlight or light sensor (are jq and hyprctl installed?)")
         }
       }
     }
@@ -173,18 +215,12 @@ Item {
 
   Process {
     id: setProcess
-    onExited: function(exitCode) {
-      if (exitCode !== 0) root.writeFailed()
-      root.afterWrite()
-    }
+    onExited: function(exitCode) { root.writeFinished(exitCode) }
   }
 
   Process {
     id: fadeProcess
-    onExited: function(exitCode) {
-      if (exitCode !== 0) root.writeFailed()
-      root.afterWrite()
-    }
+    onExited: function(exitCode) { root.writeFinished(exitCode) }
   }
 
   Timer {

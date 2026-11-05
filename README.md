@@ -44,7 +44,10 @@ If you previously ran your own backlight script, service, or plugin, stop it so 
 
 ```sh
 omarchy plugin update pdurlej.ambient-keyboard --yes
+omarchy restart shell
 ```
+
+The restart matters: Omarchy reloads the plugin after an update, but the shell keeps running the previously loaded code until it restarts.
 
 ### Remove
 

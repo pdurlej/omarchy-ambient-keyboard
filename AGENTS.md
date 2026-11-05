@@ -25,7 +25,7 @@ omarchy-shell pdurlej.ambient-keyboard status
 omarchy plugin remove pdurlej.ambient-keyboard --yes
 ```
 
-`status` reports `status` as one of: `auto` (following the light), `hold` (a manual level kept until the light changes), `manual` (no sensor), `idle` (keys faded out for inactivity), `off` (automation disabled), `asleep` (lid, lock, or displays off), `no-backlight`, `starting`.
+`status` reports `status` as one of: `auto` (following the light), `hold` (a manual level kept until the light changes), `manual` (no sensor), `idle` (keys faded out for inactivity), `off` (automation disabled), `asleep` (lid, lock, or displays off), `no-backlight`, `starting`, and after three failures in a row `error-read` (probe failed or hung; check `jq`/`hyprctl`) or `error-write` (`brightnessctl` failed). Hung probes and writes are stopped after 5 s; the shell log gets at most one warning per kind per minute.
 
 If the user already runs another backlight script, service, or plugin, it will fight this one over the LED. Point that out and let the user choose which one to keep; do not disable theirs without asking.
 
@@ -40,6 +40,8 @@ This is a beta tested only on a 2015 MacBook Pro. A hardware report from a new m
 - `Panel.qml`: optional bar button and panel. Plain-text `Text` only.
 - `probe`: read-only Bash; prints one JSON line. Never make it write anything.
 - `i18n/*.json`: strings per Omarchy language code; English is the fallback.
+
+Code changes (yours or from `omarchy plugin update`) take effect only after `omarchy restart shell`: the shell's plugin hot-reload recreates the service but keeps the previously compiled QML and `Model.js`. Edits to `probe` apply immediately, since it runs as a separate process.
 
 Before committing:
 
