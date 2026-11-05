@@ -94,10 +94,23 @@ function smooth(previous, lux) {
   return 0.7 * previous + 0.3 * lux
 }
 
+// Smallest difference worth a write: about 1% of the range, but at least one
+// level, so keyboards with only two or three levels still move.
+function deadband(maximum) {
+  return Math.max(1, Math.round(maximum * 0.012))
+}
+
+// True when the keys should move toward target at all. Reaching zero always
+// counts, so the keys really switch off in daylight.
+function worthMoving(current, target, maximum) {
+  if (target === 0) return current > 0
+  return Math.abs(target - current) >= deadband(maximum)
+}
+
 // One step toward the target, at most 5% of the range per tick. Returns null
 // when the difference is too small to bother changing.
 function nextLevel(current, target, maximum) {
-  if (Math.abs(target - current) < 3) return null
+  if (!worthMoving(current, target, maximum)) return null
   var step = Math.max(1, Math.round(maximum * 0.05))
   return current + clamp(target - current, -step, step)
 }
@@ -109,26 +122,39 @@ function lightChanged(holdLux, lux) {
 }
 
 // What a manual change teaches. Returns { darkPercent } when it can be learned
-// as a new preference for the whole curve, or { hold: true } when the room is
-// too bright for the curve to express it, or the keys were switched off.
+// as a new preference for the whole curve, or { hold: true } when the curve
+// cannot express it: the keys were switched off, the room is too bright, or
+// the level would need a "Level in the dark" outside its range.
 function learnFromManual(level, maximum, lux, settings) {
   var fraction = maximum > 0 ? level / maximum : 0
   var base = targetFraction(lux, settings.darkPercent, settings.offLux)
   if (fraction <= 0 || base < learnFloor) return { hold: true }
-  var learned = Math.round(clamp(settings.darkPercent * fraction / base, limits.darkPercent[0], limits.darkPercent[1]))
+  var required = settings.darkPercent * fraction / base
+  if (required < limits.darkPercent[0] - 0.5 || required > limits.darkPercent[1] + 0.5) return { hold: true }
+  var learned = Math.round(clamp(required, limits.darkPercent[0], limits.darkPercent[1]))
   return { darkPercent: learned }
 }
+
+// Ambient light outside this range is a sensor glitch, not a room.
+var maxPlausibleLux = 200000
 
 // Parses one JSON line from the probe helper.
 function parseProbe(text) {
   try {
     var data = JSON.parse(String(text || ""))
     if (!data || typeof data !== "object") return null
+    var maximum = numberOr(data.max, 0)
+    var brightness = numberOr(data.brightness, -1)
+    // A level that is not a whole number within range means no usable LED.
+    if (Math.floor(maximum) !== maximum || maximum <= 0) maximum = 0
+    if (Math.floor(brightness) !== brightness || brightness < 0 || brightness > maximum) brightness = -1
+    var lux = data.lux === null || data.lux === undefined ? null : numberOr(data.lux, null)
+    if (lux !== null && (lux < 0 || lux > maxPlausibleLux)) lux = null
     return {
       led: String(data.led || ""),
-      brightness: numberOr(data.brightness, -1),
-      maximum: numberOr(data.max, 0),
-      lux: data.lux === null || data.lux === undefined ? null : numberOr(data.lux, null),
+      brightness: brightness,
+      maximum: maximum,
+      lux: lux,
       sensor: String(data.sensor || ""),
       awake: data.awake === true
     }
@@ -173,32 +199,45 @@ function tick(state, probe, settings, idle) {
 
   if (!probe.awake) {
     // Lid closed, session locked or displays off: Omarchy owns the keys now.
+    // If we had dimmed them for inactivity, Omarchy's lock saved that 0, so
+    // keep restoreLevel to light them again after unlocking.
     next.last = current
     next.filtered = null
     next.awakeBefore = false
     next.holdLux = null
     next.dimmed = false
-    next.restoreLevel = null
     next.status = "asleep"
     return next
-  }
-
-  var wokeUp = !next.awakeBefore
-  if (wokeUp) {
-    next.awakeBefore = true
-    next.last = current
-    next.holdLux = null
   }
 
   if (probe.lux !== null) next.filtered = smooth(next.filtered, probe.lux)
   var hasLight = probe.lux !== null && next.filtered !== null
   var automatic = settings.enabled && hasLight
 
+  var wokeUp = !next.awakeBefore
+  if (wokeUp) {
+    next.awakeBefore = true
+    next.last = current
+    next.holdLux = null
+    var pending = next.restoreLevel
+    next.restoreLevel = null
+    // Without automatic lighting, bring back the level we dimmed from before
+    // the lock; with it, the wake-up fade below picks the right level anyway.
+    if (pending !== null && !automatic && current === 0 && pending > 0 && !(idle && settings.idleOffSeconds > 0)) {
+      next.set = pending
+      next.fade = true
+      next.last = pending
+      next.status = settings.enabled ? "manual" : "off"
+      return next
+    }
+    if (pending !== null && current === 0) next.restoreLevel = pending
+  }
+
   // Inactivity: fade the keys out and remember what to bring back.
   if (idle && settings.idleOffSeconds > 0) {
     if (!next.dimmed) {
       next.dimmed = true
-      next.restoreLevel = current
+      if (!(next.restoreLevel !== null && current === 0)) next.restoreLevel = current
       if (current > 0) {
         next.set = 0
         next.fade = true
@@ -209,7 +248,9 @@ function tick(state, probe, settings, idle) {
     return next
   }
 
-  // Back from inactivity: light the keys again at once.
+  // Back from inactivity: light the keys again at once. A brightness key that
+  // woke them (Omarchy steps 0 -> 10%) means "light up", not "I want 10%", so
+  // it is not learned; the keys come back no dimmer than the key asked for.
   if (next.dimmed) {
     next.dimmed = false
     var level = next.restoreLevel === null ? current : next.restoreLevel
@@ -217,6 +258,7 @@ function tick(state, probe, settings, idle) {
       level = Math.round(maximum * targetFraction(next.filtered, settings.darkPercent, settings.offLux))
       next.target = level
     }
+    if (next.last !== null && current > next.last) level = Math.max(level, current)
     next.restoreLevel = null
     next.set = level !== current ? level : null
     next.fade = next.set !== null
@@ -227,6 +269,7 @@ function tick(state, probe, settings, idle) {
 
   var manual = !wokeUp && next.last !== null && current !== next.last
   next.last = current
+  if (!next.dimmed) next.restoreLevel = null
 
   if (!settings.enabled) {
     next.holdLux = null
@@ -266,7 +309,7 @@ function tick(state, probe, settings, idle) {
   if (wokeUp) {
     // After unlocking or opening the lid, fade straight to the right level
     // instead of creeping up from whatever the lock left behind.
-    if (Math.abs(next.target - current) >= 3) {
+    if (worthMoving(current, next.target, maximum)) {
       next.set = next.target
       next.fade = true
       next.last = next.target

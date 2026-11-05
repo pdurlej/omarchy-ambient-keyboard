@@ -16,6 +16,8 @@ maximum=0
 if [[ -n $led ]]; then
   brightness=$(<"$led/brightness")
   maximum=$(<"$led/max_brightness")
+  [[ $brightness =~ ^[0-9]+$ ]] || brightness=-1
+  [[ $maximum =~ ^[0-9]+$ ]] || maximum=0
 fi
 
 # Prefer a processed lux value; fall back to raw * scale.
@@ -29,6 +31,8 @@ for device in /sys/bus/iio/devices/iio:device*; do
     raw=$(<"$device/in_illuminance_raw") || continue
     scale=1
     [[ -r $device/in_illuminance_scale ]] && scale=$(<"$device/in_illuminance_scale")
+    # Only convert when both parts are plain numbers; awk turns garbage into 0.
+    [[ $raw =~ ^[0-9]+(\.[0-9]+)?$ && $scale =~ ^[0-9]+(\.[0-9]+)?$ ]] || continue
     value=$(awk -v r="$raw" -v s="$scale" 'BEGIN { printf "%.3f", r * s }')
   else
     continue

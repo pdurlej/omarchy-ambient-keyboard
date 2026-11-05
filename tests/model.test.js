@@ -189,4 +189,75 @@ test("no backlight is reported, not acted on", () => {
   assert.strictEqual(Model.tick(Model.initialState(), { led: "", brightness: -1, maximum: 0, lux: 5, awake: true }, settings, false).status, "no-backlight")
 })
 
+// Regression tests for the red-team review of 0.10.0-beta.1.
+
+const tiny = (brightness, lux, awake = true) => ({ led: "kbd", brightness, maximum: 3, lux, sensor: "als", awake })
+
+test("keyboards with three levels reach their target on start", () => {
+  const r = Model.tick(Model.initialState(), tiny(0, 0), settings, false)
+  assert.strictEqual(r.target, 1)
+  assert.strictEqual(r.set, 1)
+})
+
+test("keyboards with three levels switch off in daylight", () => {
+  const r = Model.tick(settled(2, 400), tiny(2, 400), settings, false)
+  assert.strictEqual(r.target, 0)
+  assert.strictEqual(r.set, 1)
+  const again = Model.tick(r, tiny(1, 400), settings, false)
+  assert.strictEqual(again.set, 0)
+})
+
+test("a brightness key that wakes dark keys lights them, without learning", () => {
+  const idle = Model.tick(settled(120, 0), probe(120, 0), settings, true)
+  assert.strictEqual(idle.set, 0)
+  // F6 wakes the keys: Omarchy steps 0 -> 25. That means "light up", so the
+  // keys return to the room's level and nothing is learned.
+  const pressed = Model.tick(idle, probe(25, 0), settings, false)
+  assert.strictEqual(pressed.set, 89)
+  assert.strictEqual(pressed.learn, null)
+  assert.strictEqual(pressed.dimmed, false)
+  // Without a sensor, a key press brighter than the old level is kept.
+  const dark = Model.tick(settled(20, null), probe(20, null), settings, true)
+  const up = Model.tick(dark, probe(25, null), settings, false)
+  assert.strictEqual(up.set, null)
+  assert.strictEqual(up.last, 25)
+})
+
+test("a level the curve cannot reach is held, not half-learned", () => {
+  const atSixty = Math.round(255 * Model.targetFraction(60, 35, 150))
+  const r = Model.tick(settled(atSixty, 60), probe(200, 60), settings, false)
+  assert.strictEqual(r.learn, null)
+  assert.strictEqual(r.status, "hold")
+  assert.strictEqual(Model.tick(r, probe(200, 60), settings, false).set, null)
+})
+
+test("without a sensor, keys dimmed before a lock come back after unlocking", () => {
+  let s = Model.tick(settled(120, null), probe(120, null), settings, true)
+  assert.strictEqual(s.set, 0)
+  // Omarchy's lock saves the 0 we left and restores it on unlock.
+  s = Model.tick(s, probe(0, null, false), settings, false)
+  s = Model.tick(s, probe(0, null, false), settings, false)
+  s = Model.tick(s, probe(0, null), settings, false)
+  assert.strictEqual(s.set, 120)
+  assert.strictEqual(s.fade, true)
+})
+
+test("with a sensor, unlocking after idle fades to the right level", () => {
+  let s = Model.tick(settled(89, 0), probe(89, 0), settings, true)
+  s = Model.tick(s, probe(0, 0, false), settings, false)
+  s = Model.tick(s, probe(0, 0), settings, false)
+  assert.strictEqual(s.set, 89)
+  assert.strictEqual(s.restoreLevel, null)
+})
+
+test("implausible sensor readings are ignored", () => {
+  assert.strictEqual(Model.parseProbe('{"led":"k","brightness":10,"max":255,"lux":1e12,"awake":true}').lux, null)
+  assert.strictEqual(Model.parseProbe('{"led":"k","brightness":10,"max":255,"lux":-4,"awake":true}').lux, null)
+  assert.strictEqual(Model.parseProbe('{"led":"k","brightness":300,"max":255,"lux":4,"awake":true}').brightness, -1)
+  assert.strictEqual(Model.parseProbe('{"led":"k","brightness":1.5,"max":255,"lux":4,"awake":true}').brightness, -1)
+  // A glitch does not disturb the smoothed reading.
+  const s = Model.tick(settled(89, 0), Model.parseProbe('{"led":"k","brightness":89,"max":255,"lux":1e12,"awake":true}'), settings, false)
+  assert.strictEqual(s.filtered, 0)
+})
+
 console.log(passed + " tests passed")
